@@ -39,15 +39,37 @@ json_string = """
     }
 }
 """
-
+output = """
+{
+    "latest": {
+        "build_date": "xxxxxxx",
+        "ami_id": "ami-xxxxxx",
+        "commit_hash": "xxxxxxxxxxxx"
+    }
+}
+"""
 
 @route('/build')
 def hello():
     pattern = re.compile(r'\,(?!\s*?[\{\[\"\'\w])')
     json_string_fixed = pattern.sub("", json_string)
     data = json.loads(json_string_fixed) 
+    jobs =data["jobs"]["Build base AMI"]["Builds"]
+    jobs.sort(key=time_check, reverse=True)
+
+    output_json = json.loads(output) 
+    output_json["latest"]["build_date"] = jobs[0]["build_date"]
+    output_json["latest"]["ami_id"] = jobs[0]["output"].split()[2]
+    output_json["latest"]["commit_hash"] = jobs[0]["output"].split()[3]
+    return output_json
+
+def time_check(payload):
+    try:
+        return int(payload['build_date'])
+    except KeyError:
+        return 0
 
 
-    
-    return data;
-run(host='localhost', port=8080, debug=True)
+
+  
+run(host='0.0.0.0', port=8080, debug=True)

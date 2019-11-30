@@ -1,0 +1,192 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {},
+    "Parameters": {
+        "VPCIDParameter": {
+            "Description": "VPC id",
+            "Type": "String",
+            "Default": "vpc-989558e1"
+        },
+        "InstanceTypeParameter": {
+            "Type": "String",
+            "Default": "t2.micro",
+            "AllowedValues": [
+                "t2.micro",
+                "m1.small",
+                "m1.large"
+            ],
+            "Description": "Enter t2.micro, m1.small, or m1.large. Default is t2.micro."
+        },
+        "AMIIdParameter": {
+            "Type": "String",
+            "Default": "ami-0174b04d52d124b90",
+            "Description": "Enter an AMI"
+        },
+        "RegionParameter": {
+            "Type": "String",
+            "Default": "us-west-2b",
+            "Description": "Region"
+        },
+        "IdTagParameter": {
+            "Type": "String",
+            "Default": "AMIBuildApp",
+            "Description": "Name/ID Tag"
+        },
+        "KeyNameParameter": {
+            "Type": "String",
+            "Default": "techsaintPEM",
+            "Description": "Name of PEM key"
+        }
+    },
+    "Mappings": {},
+    "Conditions": {},
+    "Resources": {
+        "AMIBuild": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "KeyName": {
+                    "Ref": "KeyNameParameter"
+                },
+                "ImageId": {
+                    "Ref": "AMIIdParameter"
+                },
+                "AvailabilityZone": {
+                    "Ref": "RegionParameter"
+                },
+                "InstanceType": {
+                    "Ref": "InstanceTypeParameter"
+                },
+                "Monitoring": "true",
+                "SecurityGroupIds": [
+                    {"Ref": "AMIBuildAppsg"} 
+                ],
+                "Tags": [
+                    {
+                        "Key": "AppID",
+                        "Value": {
+                            "Ref": "IdTagParameter"
+                        }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                                "#!/bin/bash",
+                                "DEBIAN_FRONTEND=noninteractive",
+                                "sleep 60",
+                                "apt-get update -y",
+                                "apt-get -y install git docker-compose",
+                                "mkdir -p /opt/app",                              
+                                "git clone https://github.com/techsaint/jsonparser.git /opt/app/jsonparser",
+                                "docker build -t jsondock /opt/app/jsonparser/src",
+                                "docker run -p 80:8080 --volume=/home/techsaint/src/bottle_jsonparser/src jsondock"
+                                
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "AMIBuildAppsg": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "-",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "VPCIDParameter"
+                },
+                "Tags": [
+                    {
+                        "Key": "AppID",
+                        "Value": {
+                            "Ref": "IdTagParameter"
+                        }
+                    }
+                ]
+            }
+        },
+        
+        "albBuildApp": {
+            "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties" : {
+                "IpAddressType" : "ipv4",            
+                "Name" : "BuildAppalb",
+                "SecurityGroups" : [ {"Ref": "AMIBuildAppsg"} ],
+                "Subnets" : ["subnet-11b69b59","subnet-94212cf2","subnet-e0bf46ba","subnet-5b074073"],
+                "Tags" : [
+                    {
+                        "Key": "AppID",
+                        "Value": {
+                            "Ref": "IdTagParameter"
+                        }
+                    }
+                 ],
+                "Type" : "application"
+              }
+          },
+          "albBuildAppTG":{
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties" : {
+                "HealthCheckPort" : "80",
+                "Name" : "albBuildAppTG",
+                "Port" : 80,
+                "Protocol" : "HTTP",
+                "Tags" : [ 
+                    {
+                        "Key": "AppID",
+                        "Value": {
+                            "Ref": "IdTagParameter"
+                        }
+                    }
+                     ],            
+                "Targets" : [ {
+                    "Id" : {"Ref": "AMIBuild"},
+                    "Port" : 80
+                  }],
+                "TargetType" : "instance",
+                "VpcId" :  {"Ref": "VPCIDParameter"}
+              },
+              "DependsOn": [ "albBuildApp" ]
+          },
+          "HTTPlistener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties": {
+                "DefaultActions": [
+                    {
+                        "Type": "forward",
+                        "TargetGroupArn": { "Ref": "albBuildAppTG" }
+                      }
+                ],
+                "LoadBalancerArn": {
+                    "Ref": "albBuildApp"
+                },
+                "Port": 80,
+                "Protocol": "HTTP"
+            }
+        }
+          
+    },
+    "Outputs": {
+        "InstanceId" : {
+            "Description" : "InstanceId of the newly created EC2 instance",
+            "Value" : { "Ref" : "AMIBuild" }
+          },
+          "LoadBalancerDNSName" : {
+            "Description": "The DNSName of the load balancer",  
+            "Value" : { "Fn::GetAtt" : [ "albBuildApp", "DNSName" ]},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-ALBDNS" }
+              }
+          }
+    }
+}

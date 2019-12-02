@@ -6,20 +6,24 @@ It creates the following AWS Resources:
 - Security Group for EC2 instance 
 - Security Group for ALB
 
-The application is build in Python and is located here: https://github.com/techsaint/jsonparser
-It is deployed onto the EC2 instance using git and Docker. 
+## Prereqs for running 
+- AWS CLI
+- AWS Configure (or equiv) set up with Secrets
+
+
+### Files Included
+1. deploy-system.sh   
+2. destroy-system.sh 
+3. goodrx.cf.json
 
 deploy-system.sh will stand up the environment and deploy the Cloudformation Stack
 
 destroy-system.sh will delete the stack
 
 
-## Prereqs for running 
-- AWS CLI
-- AWS Configure (or equiv) set up with Secrets
-
-
-## Quick Instructions
+### How to Run
+The application is build in Python and is located here: https://github.com/techsaint/jsonparser
+It is deployed onto the EC2 instance using git and Docker. 
 
 running deploy-system.sh should produce this output: 
 it will produce this output:

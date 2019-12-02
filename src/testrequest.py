@@ -43,6 +43,6 @@ pattern = re.compile(r'\,(?!\s*?[\{\[\"\'\w])')
 json_string_fixed = pattern.sub("", json_string)
 data = json.loads(json_string_fixed) 
 
-res = requests.post('http://localhost:8080/build', json=data)
+res = requests.post('http://BuildAppalb-554192454.us-west-2.elb.amazonaws.com/build', json=data)
 if res.ok:
     print res.json()

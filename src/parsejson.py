@@ -1,6 +1,5 @@
 from bottle import route, run,request
-import json
-import re
+import json, re
 
 json_string = """
 {
@@ -49,14 +48,39 @@ output = """
 }
 """
 
+@route('/ping',method=['GET', 'POST'])
+def happypath():
+    return json_string
+
+
 @route('/build',method=['GET', 'POST'])
 def parsejson():
+
+    all_dicts = [
+            lambda: request.forms,
+            #lambda: request.json,
+            #lambda: request.POST,
+            lambda: request_fallback
+    ]
+
+    request_dict = dict()
+    for req_dict_ in all_dicts:
+        try:
+            req_dict = req_dict_()
+        except KeyError:
+            continue
+        if req_dict is not None and hasattr(req_dict, 'items'):
+            for req_key, req_val in req_dict.items():
+                request_dict[req_key] = req_val
+        #return request_dict 
+
+
     #clean up json
-    #pattern = re.compile(r'\,(?!\s*?[\{\[\"\'\w])')
-    #son_string_fixed = pattern.sub("", str(request.json))
+    pattern = re.compile(r'\,(?!\s*?[\{\[\"\'\w])')
+    json_string_fixed = pattern.sub("", request_dict.keys()[0])
 
     #Read in json from request
-    data = request.json
+    data = json.loads(json_string_fixed)
     jobs =data["jobs"]["Build base AMI"]["Builds"]
 
     #sort using time as integer
@@ -74,6 +98,8 @@ def time_check(payload):
     except KeyError:
         return 0
 
+def request_fallback():
+    return "Could not find json in request"
 
 
   
